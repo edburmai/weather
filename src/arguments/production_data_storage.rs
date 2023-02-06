@@ -1,19 +1,29 @@
 use crate::arguments::{data_storage, WeatherProvider};
 
+use std::env;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io;
+use std::path::PathBuf;
 
 use string_error::into_err;
 
-static CONFIG_FILE: &str = "providers.conf";
+fn get_config_path() -> PathBuf {
+    let mut path = match home::home_dir() {
+        Some(path) => path,
+        None => env::temp_dir(),
+    };
+
+    path.push(".weather_providers.data");
+    path
+}
 
 fn save_providers(providers: Vec<WeatherProvider>) -> Result<(), Box<dyn Error>> {
     let file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(CONFIG_FILE)
+        .open(get_config_path())
         .map_err(|e| {
             into_err(format!(
                 "Failed to open providers file while saving config ({e})"
@@ -32,7 +42,7 @@ pub struct ProductionDataStorage;
 
 impl data_storage::DataStorage for ProductionDataStorage {
     fn get_all_providers(&self) -> Result<Vec<WeatherProvider>, Box<dyn Error>> {
-        let file = match OpenOptions::new().read(true).open(CONFIG_FILE) {
+        let file = match OpenOptions::new().read(true).open(get_config_path()) {
             Ok(file) => file,
             Err(e) => {
                 if e.kind() == io::ErrorKind::NotFound {
