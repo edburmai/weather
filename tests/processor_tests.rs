@@ -1,4 +1,4 @@
-use mockall::mock;
+use mockall::{mock, predicate::eq};
 use string_error::static_err;
 
 use weather::arguments::{
@@ -65,30 +65,19 @@ fn add_provider() {
         data_storage_expect: |mut data_storage_mock| {
             data_storage_mock
                 .expect_get_provider()
+                .with(eq("add_provider_test".to_string()))
                 .times(1)
                 .returning(|_| Err(static_err("err")));
 
             data_storage_mock
                 .expect_add_provider()
+                .withf(|p| p.name == "add_provider_test".to_string())
                 .times(1)
                 .returning(|_| Ok(()));
 
             data_storage_mock
         },
-        provider_expect: |mut provider_mock| {
-            provider_mock
-                .expect_get_weather()
-                .times(1)
-                .returning(|_, _| {
-                    Ok(WeatherInfo {
-                        description: None,
-                        temperature: None,
-                        humidity: None,
-                        pressure: None,
-                    })
-                });
-            provider_mock
-        },
+        provider_expect: |provider_mock| provider_mock,
     });
 
     let processor = Processor::new(dependency_factory);
@@ -96,7 +85,7 @@ fn add_provider() {
     let add_provider_command1 = Cli {
         command: WeatherCommand::Provider(ProviderCommand {
             command: ProviderSubcommand::Add(WeatherProvider {
-                name: "name".to_string(),
+                name: "add_provider_test".to_string(),
                 provider: arguments::Provider::AccuWeather,
                 api_key: "api_key".to_string(),
             }),
@@ -112,10 +101,11 @@ fn add_existing_provider() {
         data_storage_expect: |mut data_storage_mock| {
             data_storage_mock
                 .expect_get_provider()
+                .with(eq("add_existing_provider_test".to_string()))
                 .times(1)
                 .returning(|_| {
                     Ok(WeatherProvider {
-                        name: "name".to_string(),
+                        name: "add_existing_provider_test".to_string(),
                         provider: arguments::Provider::AccuWeather,
                         api_key: "api_key".to_string(),
                     })
@@ -125,9 +115,103 @@ fn add_existing_provider() {
 
             data_storage_mock
         },
+        provider_expect: |provider_mock| provider_mock,
+    });
+
+    let processor = Processor::new(dependency_factory);
+
+    let add_provider_command = Cli {
+        command: WeatherCommand::Provider(ProviderCommand {
+            command: ProviderSubcommand::Add(WeatherProvider {
+                name: "add_existing_provider_test".to_string(),
+                provider: arguments::Provider::AccuWeather,
+                api_key: "api_key".to_string(),
+            }),
+        }),
+    };
+
+    assert_eq!(false, processor.run(add_provider_command).is_ok());
+}
+
+#[test]
+fn remove_provider() {
+    let dependency_factory = Box::new(TestableDependencyFactory {
+        data_storage_expect: |mut data_storage_mock| {
+            data_storage_mock
+                .expect_remove_provider()
+                .with(eq("remove_provider_test".to_string()))
+                .times(1)
+                .returning(|_| Ok(()));
+
+            data_storage_mock
+        },
+        provider_expect: |provider_mock| provider_mock,
+    });
+
+    let processor = Processor::new(dependency_factory);
+
+    let remove_provider_command = Cli {
+        command: WeatherCommand::Provider(ProviderCommand {
+            command: ProviderSubcommand::Remove {
+                name: "remove_provider_test".to_string(),
+            },
+        }),
+    };
+
+    assert_eq!(Some(()), processor.run(remove_provider_command).ok());
+}
+
+#[test]
+fn show_provider() {
+    let dependency_factory = Box::new(TestableDependencyFactory {
+        data_storage_expect: |mut data_storage_mock| {
+            data_storage_mock
+                .expect_get_provider()
+                .with(eq("show_provider_test".to_string()))
+                .times(1)
+                .returning(|_| Err(static_err("err")));
+
+            data_storage_mock
+        },
+        provider_expect: |provider_mock| provider_mock,
+    });
+
+    let processor = Processor::new(dependency_factory);
+
+    let show_provider_command = Cli {
+        command: WeatherCommand::Provider(ProviderCommand {
+            command: ProviderSubcommand::Show {
+                name: Some("show_provider_test".to_string()),
+            },
+        }),
+    };
+
+    assert_ne!(Some(()), processor.run(show_provider_command).ok());
+}
+
+#[test]
+fn get_weather() {
+    let dependency_factory = Box::new(TestableDependencyFactory {
+        data_storage_expect: |mut data_storage_mock| {
+            data_storage_mock
+                .expect_get_provider()
+                .with(eq("get_weather_test".to_string()))
+                .times(1)
+                .returning(|_| {
+                    // May be arbitrary Ok
+                    Ok(WeatherProvider {
+                        name: "get_weather_test".to_string(),
+                        provider: arguments::Provider::AccuWeather,
+                        api_key: "api_key".to_string(),
+                    })
+                });
+
+            data_storage_mock
+        },
         provider_expect: |mut provider_mock| {
             provider_mock
                 .expect_get_weather()
+                .with(eq("Kyiv".to_string()), eq(None))
                 .times(1)
                 .returning(|_, _| {
                     Ok(WeatherInfo {
@@ -143,15 +227,13 @@ fn add_existing_provider() {
 
     let processor = Processor::new(dependency_factory);
 
-    let add_provider_command1 = Cli {
-        command: WeatherCommand::Provider(ProviderCommand {
-            command: ProviderSubcommand::Add(WeatherProvider {
-                name: "name".to_string(),
-                provider: arguments::Provider::AccuWeather,
-                api_key: "api_key".to_string(),
-            }),
-        }),
+    let get_weather_command = Cli {
+        command: WeatherCommand::Get {
+            address: "Kyiv".to_string(),
+            date: None,
+            provider_name: "get_weather_test".to_string(),
+        },
     };
 
-    assert_eq!(false, processor.run(add_provider_command1).is_ok());
+    assert_eq!(Some(()), processor.run(get_weather_command).ok());
 }
